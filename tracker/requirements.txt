@@ -1,0 +1,7 @@
+# Python Dependencies
+
+# List your project dependencies here
+numpy
+pandas
+requests
+flask
