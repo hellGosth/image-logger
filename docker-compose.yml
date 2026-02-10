@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  tracker:
+    build:
+      context: .
+      dockerfile: tracker/Dockerfile
+    container_name: tracker
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${PORT:-5000}:5000"
+    volumes:
+      - ./:/app:rw
+      - ./tracker_data:/app/tracker_data:rw
+      - ./.pages:/app/.pages:rw
+      - ./.tools:/app/.tools:rw
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
+
+  tracker_worker:
+    build:
+      context: .
+      dockerfile: tracker/Dockerfile
+    container_name: tracker_worker
+    restart: unless-stopped
+    env_file: .env
+    command: celery -A tracker.celery_app.celery worker --loglevel=info --concurrency=1
+    volumes:
+      - ./:/app:rw
+      - ./tracker_data:/app/tracker_data:rw
+      - ./.pages:/app/.pages:rw
+      - ./.tools:/app/.tools:rw
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: image-logger-network
